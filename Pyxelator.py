@@ -8,7 +8,7 @@ logger = logging.getLogger()
 
 colors = []                 # colors of the input image
 whiteBackground = True      # background of the image
-numGenerationsTotal = 200   # number of total generations
+numGenerationsTotal = 1000   # number of total generations
 
 
 class Dot:
@@ -57,8 +57,8 @@ class Replica:
         return self
 
     # scores itself by converting itself and the input image to arrays
-    # the score indicates how different they are (0% very similar, 100% completely different)
-    # from https://www.raspberrypi.org/forums/viewtopic.php?t=195181
+    #   the score indicates how different they are (0% very similar, 100% completely different)
+    #       from https://www.raspberrypi.org/forums/viewtopic.php?t=195181
     def getFitnessScore(self, inputImage):
         selfPrinted = self.print()
         arraySelf = numpy.array(selfPrinted).astype(numpy.int)
@@ -71,13 +71,13 @@ class Replica:
         secondDots = secondIndividual[0].getDots()
         for i in range(0, len(firstDots)):
             if random() < 0.5:
-                self.dots.append(firstDots[i])
+                self.dots.append(Dot(firstDots[i].x, firstDots[i].y, firstDots[i].color))
             else:
-                self.dots.append(secondDots[i])
+                self.dots.append(Dot(secondDots[i].x, secondDots[i].y, secondDots[i].color))
 
     def mutate(self):
         for dot in self.dots:
-            if randint(0,8192) == 1:
+            if randint(0,128) == 1:
                 dot.mutate()
                 
 # all replicas of the input image
@@ -95,17 +95,16 @@ class Population:
             self.population.append((replica,replica.getFitnessScore(self.inputImage)))
             self.sort()
 
-    # generates next generation
-    def generateNextGeneration(self):
-        #individuals = [individual[0] for individual in population]
-        
+    # generates next generation by selecting the best half of the population
+    #   and doing crossover between them and mutating the new individual
+    def generateNextGeneration(self):        
         half = (len(self.population) + 1) / 2
         newPopulation = self.population[:int(half)]
 
         for i in range(0, int(half)):
             newIndividual = Replica()
             newIndividual.crossover(newPopulation[i], newPopulation[randint(0, int(half)-1)])
-            #newIndividual.mutate()
+            newIndividual.mutate()
             newPopulation.append((newIndividual,newIndividual.getFitnessScore(self.inputImage)))
 
         self.population = newPopulation
@@ -114,6 +113,10 @@ class Population:
     # returns the first replica, as it is sorted, it is always the best one 
     def getFirst(self):
         return self.population[0][0]
+
+    # returns the first score, as it is sorted, it is always the best one 
+    def getFirstScore(self):
+        return self.population[0][1]
 
     # prints the population's score fitness
     def print(self):
@@ -154,20 +157,20 @@ def getBackgroundColor():
     whiteBackground = (light > black)   
 
 # draws the borders and saves the image
-def save(finalImage, genNumber):
+def save(finalImage, genNumber, score):
     canvas = ImageDraw.Draw(finalImage)
     canvas.line([0,0,0,511], (0,0,0)) # top border
     canvas.line([0,0,511,0], (0,0,0)) # left border
     canvas.line([0,511,511,511], (0,0,0)) # right border
     canvas.line([511,0, 511 ,511], (0,0,0)) # bottom border
-    finalImage.save("testNoMutationF" + str(genNumber) + ".jpg")
+    finalImage.save("F_500Pop_128Mut_" + str(genNumber) + "gen_" + str(score) + "score.jpg")
 
 # genetic algorithm that finds the colors in the input image and draws a replica by pointillism
 def paint(inputImage):
     getColors(inputImage)
     getBackgroundColor()
     
-    population = Population(size=50, inputImage=inputImage)
+    population = Population(size=500, inputImage=inputImage)
     
     genNumber = 0
     global numGenerationsTotal
@@ -175,7 +178,7 @@ def paint(inputImage):
         print("generation number:" + str(genNumber))
         population.generateNextGeneration()
         if genNumber % 25 == 0:
-            save(population.getFirst().print(),genNumber)
+            save(population.getFirst().print(),genNumber, population.getFirstScore())
         population.print()
         genNumber += 1
     
