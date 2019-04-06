@@ -6,81 +6,92 @@ import argparse
 import logging
 logger = logging.getLogger()
 
-colors = []                 # colors of the input image
-whiteBackground = True      # background of the image
-numGenerationsTotal = 1000   # number of total generations
+
+# global variables
+palette = []                # colours of the input image
+whiteBackground = True      # boolean for background colour
+numGenerationsTotal = 4000  # number of total generations
+mutationFactor = 600        # 1/mutationFactor = probability of mutation
+populationSize = 100        # size of the population
+dotSize = 11                # size of the dots
 
 
+# The gene of the individuals. It has a colour and a position.
 class Dot:
-    def __init__(self, x, y, color):
-        self.color = color  # (red, green, blue)
+    def __init__(self, x, y, colour):
+        self.colour = colour  # (red, green, blue)
         self.x = x          
         self.y = y       
 
+    # The colour of the Dot mutates to another random colour from the palette.
     def mutate(self):
-        global colors
-        self.color = colors[randint(0,len(colors)-1)][1]  
+        global palette
+        self.colour = palette[randint(0,len(palette)-1)]  
 
-# individual of the population, a drawn image that tries to replicate the input image
+# An individual of the population, a drawn image that tries to replicate the input image.
 class Replica:  
     def __init__(self):
         self.dots = []
-        # a replica contains 10,404 dots (102 * 102, because of 512 / 5 = 102)
+        # A Replica contains 2,116 dots (46 * 46, because of 512 / 11 = 46).
 
+    # Returns the array of Dots.
     def getDots(self):
         return self.dots
 
-    # generates an Image with the dots painted in it    
+    # Generates and returns an Image with the Dots painted in it.
     def print(self):
+        global dotSize
         global whiteBackground
-        if whiteBackground: 
+        if whiteBackground:
             resultImage = Image.new("RGB", (512,512), (255, 255, 255))
         else:
             resultImage = Image.new("RGB", (512,512), (0, 0, 0))
-
         canvas = ImageDraw.Draw(resultImage)
         for dot in self.dots:
-            canvas.ellipse([dot.x, dot.y, dot.x+4,dot.y+4], fill=dot.color)
+            canvas.ellipse([dot.x, dot.y, dot.x+(dotSize-1),dot.y+(dotSize-1)], fill=dot.colour)
         
         return resultImage
         
-    # generates the dots with a random color of the palette
+    # Generates the Dots with a random colour of the palette.
     def generateRandom(self):
-        global colors
-        i = 1
-        while i < 510:
-            j = 1
-            while j < 510:
-                self.dots.append(Dot(x=i, y=j, color=colors[randint(0,len(colors)-1)][1]))
-                j += 5
-            i += 5   
+        global palette
+        global dotSize
+        i = 3
+        while i < 506:
+            j = 3
+            while j < 506:
+                self.dots.append(Dot(x=i, y=j, colour=palette[randint(0,len(palette)-1)]))
+                j += dotSize
+            i += dotSize
         return self
 
-    # scores itself by converting itself and the input image to arrays
+    # Scores itself by converting itself and the input image to arrays
     #   the score indicates how different they are (0% very similar, 100% completely different)
-    #       from https://www.raspberrypi.org/forums/viewtopic.php?t=195181
+    #       from https://www.raspberrypi.org/forums/viewtopic.php?t=195181.
     def getFitnessScore(self, inputImage):
         selfPrinted = self.print()
         arraySelf = numpy.array(selfPrinted).astype(numpy.int)
         arrayInput = numpy.array(inputImage).astype(numpy.int)
         return (numpy.abs(arraySelf-arrayInput).sum() / 255.0 * 100) / arrayInput.size
 
-    # the dots of the replica are filled with each individual with a probability of 50%
+    # The Dots are filled with the ones of each individual with a probability of 50%.
     def crossover(self, firstIndividual, secondIndividual):
         firstDots = firstIndividual[0].getDots()
         secondDots = secondIndividual[0].getDots()
         for i in range(0, len(firstDots)):
             if random() < 0.5:
-                self.dots.append(Dot(firstDots[i].x, firstDots[i].y, firstDots[i].color))
+                self.dots.append(Dot(firstDots[i].x, firstDots[i].y, firstDots[i].colour))
             else:
-                self.dots.append(Dot(secondDots[i].x, secondDots[i].y, secondDots[i].color))
+                self.dots.append(Dot(secondDots[i].x, secondDots[i].y, secondDots[i].colour))
 
+    # The Dots are mutated depending on a probability.
     def mutate(self):
+        global mutationFactor
         for dot in self.dots:
-            if randint(0,128) == 1:
+            if randint(0,mutationFactor) == 1:
                 dot.mutate()
                 
-# all replicas of the input image
+# All Replicas of the input image.
 class Population:
     def __init__(self, size, inputImage):
         self.size = size
@@ -88,15 +99,15 @@ class Population:
         self.inputImage = inputImage
         self.generateFirstPopulation()
 
-    # generates first population completely random
+    # Generates the first population completely random.
     def generateFirstPopulation(self):
         for i in range(0, self.size-1):
             replica = Replica().generateRandom()
             self.population.append((replica,replica.getFitnessScore(self.inputImage)))
-            self.sort()
+        self.sort()
 
-    # generates next generation by selecting the best half of the population
-    #   and doing crossover between them and mutating the new individual
+    # Generates next generation by selecting the best half of the population
+    #   and doing crossover between them and mutating the new individual.
     def generateNextGeneration(self):        
         half = (len(self.population) + 1) / 2
         newPopulation = self.population[:int(half)]
@@ -110,82 +121,77 @@ class Population:
         self.population = newPopulation
         self.sort()
 
-    # returns the first replica, as it is sorted, it is always the best one 
+    # Returns the first Replica, as it is sorted, it is always the best one.
     def getFirst(self):
         return self.population[0][0]
 
-    # returns the first score, as it is sorted, it is always the best one 
+    # Returns the first score, as it is sorted, it is always the best one.
     def getFirstScore(self):
         return self.population[0][1]
 
-    # prints the population's score fitness
-    def print(self):
-        for individual in self.population:
-            print(individual[1])
+    # Prints the population's best's score fitness.
+    def printBest(self):
+        print(self.population[0][1])
 
-    # sorts the population by its fitness score
+    # Sorts the population by its fitness score.
     def sort(self):
         self.population.sort(key=lambda tup: tup[1])
 
-# finds the HSV's value of the color sent as a parameter.
-def getColorValue(r, g, b):
+# Finds the HSV's value of the colour sent as a parameter.
+def getColourValue(r, g, b):
     r, g, b = r/255.0, g/255.0, b/255.0
     v = max(r, g, b)
     return v
 
-# gets all colors from the image and saves them in a global variable sorted by frequency.
-def getColors(img):
-    global colors
-    colors = img.getcolors(img.width * img.height)
-    # colors.sort(key=lambda tup: tup[0], reverse=True) # TODO -> is this necessary?
-
-# finds the background color comparing the overall value of colors.
-def getBackgroundColor():
-    """ TODO -> maybe it would be better to paint it in the most common color 
-            it will make it more efficient but the output may not be as pretty
-        and even maybe it should be better to group the colors by more general colors
-        and paint the background of that general color."""
+# Finds the background colour comparing the overall value of the colours in the palette.
+def getBackgroundColour():
     black = 0
     light = 0
-    for _, color in colors:
-        value = getColorValue(color[0], color[1], color[2])
+    global palette
+    for frequency, colour in palette:
+        value = getColourValue(colour[0], colour[1], colour[2])
         if (value > 0.5):
-            light += 1
+            light += frequency
         else:
-            black += 1
+            black += frequency
     global whiteBackground
-    whiteBackground = (light > black)   
+    whiteBackground = (light > black) 
 
-# draws the borders and saves the image
+# Gets all colours from the input image and saves them in a global variable.
+def getColours(img):
+    global palette
+    palette = img.getcolors(img.width * img.height)
+    getBackgroundColour()
+    palette = [colour[1] for colour in palette]     # Delete frequency information.
+
+# Draws the borders and saves the image.
 def save(finalImage, genNumber, score):
-    canvas = ImageDraw.Draw(finalImage)
-    canvas.line([0,0,0,511], (0,0,0)) # top border
-    canvas.line([0,0,511,0], (0,0,0)) # left border
-    canvas.line([0,511,511,511], (0,0,0)) # right border
-    canvas.line([511,0, 511 ,511], (0,0,0)) # bottom border
-    finalImage.save("F_500Pop_128Mut_" + str(genNumber) + "gen_" + str(score) + "score.jpg")
+    if whiteBackground:
+        canvas = ImageDraw.Draw(finalImage)
+        canvas.line([0,0,0,511], (0,0,0)) # top border
+        canvas.line([0,0,511,0], (0,0,0)) # left border
+        canvas.line([0,511,511,511], (0,0,0)) # right border
+        canvas.line([511,0, 511 ,511], (0,0,0)) # bottom border
+    finalImage.save("./final/Size11/X_BC/X_" + str(genNumber) + "gen_" + str(score) + "score.png")
 
-# genetic algorithm that finds the colors in the input image and draws a replica by pointillism
+# Genetic algorithm that finds the colours in the input image and draws a replica by pointillism.
 def paint(inputImage):
-    getColors(inputImage)
-    getBackgroundColor()
+    getColours(inputImage)
+
+    global populationSize
+    population = Population(size=populationSize, inputImage=inputImage)
     
-    population = Population(size=500, inputImage=inputImage)
-    
-    genNumber = 0
     global numGenerationsTotal
+    genNumber = 0
     while genNumber <= numGenerationsTotal: 
         print("generation number:" + str(genNumber))
         population.generateNextGeneration()
         if genNumber % 25 == 0:
-            save(population.getFirst().print(),genNumber, population.getFirstScore())
-        population.print()
+            save(population.getFirst().print(), genNumber, population.getFirstScore())
+        population.printBest()
         genNumber += 1
     
-
-    
-
-# tries to open the image and checks whtehr the size is correct or not
+# Tries to open the image and checks whether the size is correct.
 def main(inputImage):
     try: 
         inputImage = Image.open(inputImage)
@@ -199,8 +205,7 @@ def main(inputImage):
         logger.error(str(error))
         exit()
 
-
-# to execute the program the only parameter needed is the path of the input image
+# To execute the program the only parameter needed is the path of the input image.
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--path', default=None, required=True, help='Image path')
