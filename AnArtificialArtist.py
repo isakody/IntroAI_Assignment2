@@ -11,7 +11,7 @@ logger = logging.getLogger()
 palette = []                # colours of the input image
 whiteBackground = True      # boolean for background colour
 numGenerationsTotal = 10000  # number of total generations
-mutationFactor = 600        # 1/mutationFactor = probability of mutation
+mutationFactor = 800        # 1/mutationFactor = probability of mutation
 populationSize = 100        # size of the population
 dotSize = 11                # size of the dots
 
@@ -129,10 +129,6 @@ class Population:
     def getFirstScore(self):
         return self.population[0][1]
 
-    # Prints the population's best's score fitness.
-    def printBest(self):
-        print(self.population[0][1])
-
     # Sorts the population by its fitness score.
     def sort(self):
         self.population.sort(key=lambda tup: tup[1])
@@ -172,10 +168,11 @@ def save(finalImage, genNumber, score):
         canvas.line([0,0,511,0], (0,0,0)) # left border
         canvas.line([0,511,511,511], (0,0,0)) # right border
         canvas.line([511,0, 511 ,511], (0,0,0)) # bottom border
-    finalImage.save("./final/Size11/Y_10000_600/Y_" + str(genNumber) + "gen_" + str(score) + "score.png")
+    finalImage.save("./Result_" + str(genNumber) + "gen_" + str(score) + "score.png")
 
 # Genetic algorithm that finds the colours in the input image and draws a replica by pointillism.
 def paint(inputImage):
+    print("Please, wait. Your image is being painted.")
     getColours(inputImage)
 
     global populationSize
@@ -184,11 +181,9 @@ def paint(inputImage):
     global numGenerationsTotal
     genNumber = 0
     while genNumber <= numGenerationsTotal: 
-        print("generation number:" + str(genNumber))
         population.generateNextGeneration()
         if genNumber % 25 == 0:
             save(population.getFirst().print(), genNumber, population.getFirstScore())
-        population.printBest()
         genNumber += 1
     
 # Tries to open the image and checks whether the size is correct.
